@@ -14,6 +14,8 @@
 #define POINTERS_PER_INODE 5
 #define POINTERS_PER_BLOCK 1024
 
+int mounted = 0;
+int *fbb;
 struct fs_superblock {
 	int magic;
 	int nblocks;
@@ -37,27 +39,30 @@ union fs_block {
 
 int fs_format()
 {
-  union fs_block block;
-  int size = disk_size();
-	disk_read(0,block.data);
-  if(block.super.magic == FS_MAGIC){
-    return 0;
-  }
-  block.super.magic = FS_MAGIC;
-  block.super.nblocks = size;
-  block.super.ninodeblocks = (int) ceil(size * 0.1);
-  block.super.ninodes = INODES_PER_BLOCK * block.super.ninodeblocks;
-  disk_write(0,block.data);
 
-  for(int i = 1; i < size; i++){
-    disk_read(i,block.data);
-    for(int j = 0; j < INODES_PER_BLOCK; j++){
-      if(block.inode[j].isvalid == 1){
-        block.inode[j].isvalid = 0;
-      }
-    }
-    disk_write(i,block.data);
-  }
+	union fs_block block;
+	int size = disk_size();
+	disk_read(0,block.data);
+	if(block.super.magic == FS_MAGIC){
+		mounted=1;
+		return 0;
+	}
+	block.super.magic = FS_MAGIC;
+	block.super.nblocks = size;
+	block.super.ninodeblocks = (int) ceil(size * 0.1);
+	block.super.ninodes = INODES_PER_BLOCK * block.super.ninodeblocks;
+	disk_write(0,block.data);
+
+	for(int i = 1; i < size; i++){
+	disk_read(i,block.data);
+	for(int j = 0; j < INODES_PER_BLOCK; j++){
+	  if(block.inode[j].isvalid == 1){
+	    block.inode[j].isvalid = 0;
+		block.inode[j].size = -1;
+	  }
+	}
+	disk_write(i,block.data);
+	}
 	return 1;
 }
 
@@ -68,11 +73,11 @@ void fs_debug()
 	disk_read(0,block.data);
 
 	printf("superblock:\n");
-  if(block.super.magic == FS_MAGIC){
-    printf("    magic number is valid\n");
-  } else {
-    printf("    magic number is not valid\n");
-  }
+	if(block.super.magic == FS_MAGIC){
+    	printf("    magic number is valid\n");
+  	} else {
+    	printf("    magic number is not valid\n");
+  	}
 	printf("    %d blocks\n",block.super.nblocks);
 	printf("    %d inode blocks\n",block.super.ninodeblocks);
 	printf("    %d inodes\n",block.super.ninodes);
@@ -102,19 +107,55 @@ void fs_debug()
 
 int fs_mount()
 {
-  union fs_block block;
+	if(mounted==0){
+		union fs_block block;
+		disk_read(0,block.data);
+		if(block.super.magic != FS_MAGIC){
+			return -1;
+		}
+		if(block.super.magic == FS_MAGIC){
+			//build free block bitmap
+			const int free_block_bitmap = disk_size();
+			fbb = malloc(sizeof(int)*free_block_bitmap);
+			if(!fbb){
+				perror("error allocating mem\n");
+				return 0;
+			}
 
-	disk_read(0,block.data);
-  if(block.super.magic != FS_MAGIC){
-    return 0;
-  }
-
-
-  return 1;
+			for(int i=0; i < block.super.nblocks; i++){
+				disk_read(i, block.data);
+				if(block.data){
+					fbb[i]=1;
+				} else{
+					fbb[i]=0;
+				}
+			}
+			mounted =1;
+			return 1;
+		}
+	}
+  return 0;
 }
 
 int fs_create()
 {
+	if(mounted==1){
+		union fs_block block;
+		disk_read(0,block.data);
+		if(block.super.magic != FS_MAGIC){
+			return -1;
+		}
+		for(int i=1; i < block.super.ninodeblocks; i++ ){
+			disk_read(i,block.data);
+			for(int j = 0; j < INODES_PER_BLOCK; j++){
+			  if(block.inode[j].isvalid == 1){
+				block.inode[j].isvalid = 0;
+				block.inode[j].size = -1;
+			  }
+			}
+		}
+	}
+
 	return -1;
 }
 
