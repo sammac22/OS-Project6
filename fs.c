@@ -40,6 +40,9 @@ int fs_format()
   union fs_block block;
   int size = disk_size();
 	disk_read(0,block.data);
+  if(block.super.magic == FS_MAGIC){
+    return 0;
+  }
   block.super.magic = FS_MAGIC;
   block.super.nblocks = size;
   block.super.ninodeblocks = (int) ceil(size * 0.1);
@@ -55,7 +58,6 @@ int fs_format()
     }
     disk_write(i,block.data);
   }
-
 	return 1;
 }
 
@@ -100,7 +102,15 @@ void fs_debug()
 
 int fs_mount()
 {
-	return 0;
+  union fs_block block;
+
+	disk_read(0,block.data);
+  if(block.super.magic != FS_MAGIC){
+    return 0;
+  }
+
+
+  return 1;
 }
 
 int fs_create()
