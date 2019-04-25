@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
+#include <math.h>
 
 #define FS_MAGIC           0xf0f03410
 #define INODES_PER_BLOCK   128
@@ -36,7 +37,27 @@ union fs_block {
 
 int fs_format()
 {
-	return 0;
+  union fs_block block;
+
+	disk_read(0,block.data);
+
+  int max = block.super.nblocks;
+
+  for(int i = 1; i < max; i++){
+    disk_read(i,block.data);
+    for(int j = 0; j < INODES_PER_BLOCK; j++){
+      if(block.inode[j].isvalid == 1){
+        block.inode[j].isvalid = 0;
+      }
+    }
+    disk_write(i,block.data);
+  }
+
+  disk_read(0,block.data);
+  block.super.ninodeblocks = (int) ceil(block.super.nblocks * 0.1);
+  block.super.ninodes = INODES_PER_BLOCK * block.super.ninodeblocks;
+  disk_write(0,block.data);
+	return 1;
 }
 
 void fs_debug()
