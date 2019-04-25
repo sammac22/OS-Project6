@@ -38,12 +38,15 @@ union fs_block {
 int fs_format()
 {
   union fs_block block;
-
+  int size = disk_size();
 	disk_read(0,block.data);
+  block.super.magic = FS_MAGIC;
+  block.super.nblocks = size;
+  block.super.ninodeblocks = (int) ceil(size * 0.1);
+  block.super.ninodes = INODES_PER_BLOCK * block.super.ninodeblocks;
+  disk_write(0,block.data);
 
-  int max = block.super.nblocks;
-
-  for(int i = 1; i < max; i++){
+  for(int i = 1; i < size; i++){
     disk_read(i,block.data);
     for(int j = 0; j < INODES_PER_BLOCK; j++){
       if(block.inode[j].isvalid == 1){
@@ -53,10 +56,6 @@ int fs_format()
     disk_write(i,block.data);
   }
 
-  disk_read(0,block.data);
-  block.super.ninodeblocks = (int) ceil(block.super.nblocks * 0.1);
-  block.super.ninodes = INODES_PER_BLOCK * block.super.ninodeblocks;
-  disk_write(0,block.data);
 	return 1;
 }
 
