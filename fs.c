@@ -46,9 +46,36 @@ void fs_debug()
 	disk_read(0,block.data);
 
 	printf("superblock:\n");
+  if(block.super.magic == FS_MAGIC){
+    printf("    magic number is valid\n");
+  } else {
+    printf("    magic number is not valid\n");
+  }
 	printf("    %d blocks\n",block.super.nblocks);
 	printf("    %d inode blocks\n",block.super.ninodeblocks);
 	printf("    %d inodes\n",block.super.ninodes);
+
+  int max = block.super.nblocks;
+
+  for(int i = 1; i < max; i++){
+    disk_read(i,block.data);
+    for(int j = 0; j < INODES_PER_BLOCK; j++){
+      if(block.inode[j].isvalid == 1){
+        printf("inode: %d\n",j);
+        printf("    size: %d bytes\n", block.inode[j].size);
+        printf("    direct blocks: ");
+        for(int k = 0; k < POINTERS_PER_INODE; k++){
+          if(block.inode[j].direct[k] != 0){
+            printf("%d ",block.inode[j].direct[k]);
+          }
+        }
+        printf("\n");
+        if(block.inode[j].indirect != 0){
+          printf("    indirect: %d\n",block.inode[j].indirect);
+        }
+      }
+    }
+  }
 }
 
 int fs_mount()
